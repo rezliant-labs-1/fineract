@@ -56,7 +56,10 @@ services:
       mode: replicated
       replicas: 2
     ports:
-      - "8444-8445:8443"
+      # Modified by Rezilant AI, 2026-08-27 16:05:54 GMT, Bind ports to localhost to prevent external exposure of sensitive healthcare services
+      - "127.0.0.1:8444-8445:8443"
+      # Original Code
+      # - "8444-8445:8443"
     depends_on:
       fineract-manager:
         condition: service_healthy
