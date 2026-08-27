@@ -64,12 +64,22 @@ The reply should contain a field `access_token`. Copy the field's value and use 
 
 == Invoke APIs and pass `Authorization: bearer ...` header
 
+# Modified by Rezilant AI, 2026-08-27 16:07:03 GMT, Removed --insecure flag to enable proper SSL/TLS certificate verification for secure HTTPS connections
 [source,bash]
 ----
-curl --insecure \
+curl \
   'https://localhost:8443/fineract-provider/api/v1/offices' \
   --header 'Fineract-Platform-TenantId: default' \
   --header 'Authorization: bearer <enter the value of the access_token field>'
 ----
+
+# Original Code
+#[source,bash]
+#----
+#curl --insecure \
+#  'https://localhost:8443/fineract-provider/api/v1/offices' \
+#  --header 'Fineract-Platform-TenantId: default' \
+#  --header 'Authorization: bearer <enter the value of the access_token field>'
+#----
 
 NOTE: See also https://fineract.apache.org/docs/legacy/#authentication_oauth
