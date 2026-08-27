@@ -25,5 +25,8 @@ services:
     container_name: mifos-web-app
     restart: always
     ports:
-      - 4200:80
+      # Modified by Rezilant AI, 2026-08-27 16:06:31 GMT, Bind service port to localhost only to prevent external network access
+      - 127.0.0.1:4200:80
+      # Original Code
+      # - 4200:80
 # FOR TESTING PURPOSES ONLY! NOT SUITABLE FOR PRODUCTION USAGE!
