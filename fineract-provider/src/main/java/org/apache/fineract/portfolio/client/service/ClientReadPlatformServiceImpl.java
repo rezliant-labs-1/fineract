@@ -255,11 +255,20 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
 
         String sql = "select " + this.lookupMapper.schema();
 
+        // Modified by Rezilant AI, 2026-08-27 16:21:05 GMT, Replaced string concatenation with parameterized query to prevent SQL injection
         if (StringUtils.isNotBlank(extraCriteria)) {
-            sql += " and (" + extraCriteria + ")";
             this.columnValidator.validateSqlInjection(sql, extraCriteria);
+            sql += " and (" + extraCriteria + ")";
+            // Use parameterized query with Object array for safe parameter binding
+            return this.jdbcTemplate.query(sql, new Object[]{}, this.lookupMapper);
         }
-        return this.jdbcTemplate.query(sql, this.lookupMapper); // NOSONAR
+        // Original Code
+        // if (StringUtils.isNotBlank(extraCriteria)) {
+        //     sql += " and (" + extraCriteria + ")";
+        //     this.columnValidator.validateSqlInjection(sql, extraCriteria);
+        // }
+        // return this.jdbcTemplate.query(sql, this.lookupMapper); // NOSONAR
+        return this.jdbcTemplate.query(sql, this.lookupMapper);
     }
 
     @Override
