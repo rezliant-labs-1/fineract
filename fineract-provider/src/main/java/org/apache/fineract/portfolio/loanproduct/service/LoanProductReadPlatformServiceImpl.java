@@ -91,6 +91,82 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
     private final LoanProductRepository loanProductRepository;
 
     @Override
+    public Collection<LoanProductData> retrieveAllLoanProductsForLookup(String inClause) {
+
+        this.context.authenticatedUser();
+
+        final LoanProductLookupMapper rm = new LoanProductLookupMapper(sqlGenerator);
+
+        String sql = "select " + rm.schema();
+
+        // Modified by Rezilant AI, 2026-08-27 16:21:06 GMT, Fixed SQL injection vulnerability by using parameterized query
+        if (inClause != null && !inClause.trim().isEmpty()) {
+            // Use parameterized query with placeholders instead of direct string concatenation
+            String[] ids = inClause.split(",");
+            List<Object> params = new ArrayList<>();
+            StringBuilder placeholders = new StringBuilder();
+            
+            for (int i = 0; i < ids.length; i++) {
+                if (i > 0) {
+                    placeholders.append(",");
+                }
+                placeholders.append("?");
+                params.add(ids[i].trim());
+            }
+            
+            sql += " where lp.id in (" + placeholders.toString() + ") ";
+            return this.jdbcTemplate.query(sql, rm, params.toArray());
+        }
+
+        // Original Code
+//        if (inClause != null && !inClause.trim().isEmpty()) {
+//            sql += " where lp.id in (" + inClause + ") ";
+//            // Here no need to check injection as this is internal where clause
+//            // SQLInjectionValidator.validateSQLInput(inClause);
+//        }
+
+        return this.jdbcTemplate.query(sql, rm); // NOSONAR
+    }
+
+    @Override
+    public Collection<LoanProductData> retrieveAllLoanProductsForLookup() {
+        return retrieveAllLoanProductsForLookup(false);
+    }
+
+    @Override
+    public Collection<LoanProductData> retrieveAllLoanProductsForLookup(final boolean activeOnly) {
+        this.context.authenticatedUser();
+
+        final LoanProductLookupMapper rm = new LoanProductLookupMapper(sqlGenerator);
+
+        String sql = "select ";
+        if (activeOnly) {
+            sql += rm.activeOnlySchema();
+        } else {
+            sql += rm.schema();
+        }
+
+        // Check if branch specific products are enabled. If yes, fetch only
+        // products mapped to current user's office
+        String inClause = fineractEntityAccessUtil
+                .getSQLWhereClauseForProductIDsForUserOffice_ifGlobalConfigEnabled(FineractEntityType.LOAN_PRODUCT);
+        if (inClause != null && !inClause.trim().isEmpty()) {
+            if (activeOnly) {
+                sql += " and id in ( " + inClause + " )";
+            } else {
+                sql += " where id in ( " + inClause + " ) ";
+            }
+        }
+
+        return this.jdbcTemplate.query(sql, rm); // NOSONAR
+    }
+
+    @Override
+    public LoanProductData retrieveNewLoanProductDetails() {
+        return LoanProductData.sensibleDefaultsForNewLoanProductCreation();
+    }
+
+    @Override
     public LoanProductData retrieveLoanProduct(final Long loanProductId) {
 
         try {
@@ -161,62 +237,6 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
         }
 
         return this.jdbcTemplate.query(sql, rm); // NOSONAR
-    }
-
-    @Override
-    public Collection<LoanProductData> retrieveAllLoanProductsForLookup(String inClause) {
-
-        this.context.authenticatedUser();
-
-        final LoanProductLookupMapper rm = new LoanProductLookupMapper(sqlGenerator);
-
-        String sql = "select " + rm.schema();
-
-        if (inClause != null && !inClause.trim().isEmpty()) {
-            sql += " where lp.id in (" + inClause + ") ";
-            // Here no need to check injection as this is internal where clause
-            // SQLInjectionValidator.validateSQLInput(inClause);
-        }
-
-        return this.jdbcTemplate.query(sql, rm); // NOSONAR
-    }
-
-    @Override
-    public Collection<LoanProductData> retrieveAllLoanProductsForLookup() {
-        return retrieveAllLoanProductsForLookup(false);
-    }
-
-    @Override
-    public Collection<LoanProductData> retrieveAllLoanProductsForLookup(final boolean activeOnly) {
-        this.context.authenticatedUser();
-
-        final LoanProductLookupMapper rm = new LoanProductLookupMapper(sqlGenerator);
-
-        String sql = "select ";
-        if (activeOnly) {
-            sql += rm.activeOnlySchema();
-        } else {
-            sql += rm.schema();
-        }
-
-        // Check if branch specific products are enabled. If yes, fetch only
-        // products mapped to current user's office
-        String inClause = fineractEntityAccessUtil
-                .getSQLWhereClauseForProductIDsForUserOffice_ifGlobalConfigEnabled(FineractEntityType.LOAN_PRODUCT);
-        if (inClause != null && !inClause.trim().isEmpty()) {
-            if (activeOnly) {
-                sql += " and id in ( " + inClause + " )";
-            } else {
-                sql += " where id in ( " + inClause + " ) ";
-            }
-        }
-
-        return this.jdbcTemplate.query(sql, rm); // NOSONAR
-    }
-
-    @Override
-    public LoanProductData retrieveNewLoanProductDetails() {
-        return LoanProductData.sensibleDefaultsForNewLoanProductCreation();
     }
 
     private static final class LoanProductMapper implements RowMapper<LoanProductData> {
