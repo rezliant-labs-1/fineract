@@ -40,7 +40,7 @@ public class OkHttp3Config {
 
     private final FineractProperties fineractProperties;
 
-    // @rezliant RZ-C9A5A7E1 · 2026-10-06 — Enforces platform certificate validation for all HTTPS connections
+    // @rezliant RZ-B1BBF2C0 · 2026-10-06 — Enforces proper certificate validation for all HTTPS connections
     @Bean
     public OkHttpClient okHttpClient() throws Exception {
         var okBuilder = new OkHttpClient.Builder()//
@@ -54,9 +54,9 @@ public class OkHttp3Config {
 
 /*
  * @rezliant-change-log:start
- * RZ-C9A5A7E1 · 2026-10-06 · Trust-all TLS bypass in OkHttpClient configuration
- * Change: Removed conditional block that created insecure X509TrustManager, SSLContext, and HostnameVerifier
- * Benefit: Enforces platform certificate validation for all HTTPS connections
+ * RZ-B1BBF2C0 · 2026-10-06 · Insecure TLS trust-all X509TrustManager accepts any certificate
+ * Change: Removed conditional insecure configuration block containing trust-all X509TrustManager, insecure SSLContext, and permissive HostnameVerifier
+ * Benefit: Eliminates man-in-the-middle attack vector by enforcing JVM default certificate validation and hostname verification
  * Scope: okHttpClient() method
  * 
  * Rezliant remediation history: 1 total · 1 most recent shown
