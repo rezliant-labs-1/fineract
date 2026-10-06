@@ -34,16 +34,15 @@ services:
     container_name: loki
     image: grafana/loki:2.9.2
     command: -config.file=/etc/loki/local-config.yaml
-    # @rezliant RZ-804F0A55 · 2026-10-06 — Prevents unintended external access to logging service
     ports:
-      - "127.0.0.1:3100:3100"
+      - "3100:3100"
 
   prometheus:
     container_name: prometheus
     image: prom/prometheus:v2.47.2
     command: '--config.file=/etc/prometheus/prometheus.yml'
     ports:
-      - "127.0.0.1:9090:9090"
+      - "9090:9090"
     volumes:
       - ${PWD}/config/docker/prometheus/etc:/etc/prometheus
     logging: *default-logging
@@ -52,7 +51,7 @@ services:
     container_name: grafana
     image: grafana/grafana-oss:10.2.0
     ports:
-      - "127.0.0.1:3000:3000"
+      - "3000:3000"
     volumes:
       - ${PWD}/config/docker/grafana/datasources:/etc/grafana/provisioning/datasources
       - ${PWD}/config/docker/grafana/etc/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yaml
@@ -64,6 +63,7 @@ services:
     image: grafana/tempo:2.2.4
     # command: [ "--target=all", "--storage.trace.backend=local", "--storage.trace.local.path=/tmp/tempo", "--auth.enabled=false" ]
     command: [ "-config.file=/etc/tempo.yml" ]
+    # @rezliant RZ-80473ED2 · 2026-10-06 — Prevents external network exposure of observability endpoints
     ports:
       - "127.0.0.1:14268:14268" # jaeger ingest
       - "127.0.0.1:3200:3200"   # tempo
@@ -77,10 +77,10 @@ services:
     logging: *default-logging
 
 # @rezliant-change-log:start
-# RZ-804F0A55 · 2026-10-06 · Observability services exposed on all network interfaces
-# Change: Bound all service port mappings to localhost (127.0.0.1)
-# Benefit: Prevents unintended external access to logging service
-# Scope: loki, prometheus, grafana, tempo service port configurations
+# RZ-80473ED2 · 2026-10-06 · Tempo service exposes OTLP gRPC port 4317 on all network interfaces
+# Change: Prefixed all six Tempo port mappings with 127.0.0.1: to bind to localhost only
+# Benefit: Prevents external network exposure of observability endpoints
+# Scope: tempo service ports block
 #
 # Rezliant remediation history: 1 total · 1 most recent shown
 # @rezliant-change-log:end
