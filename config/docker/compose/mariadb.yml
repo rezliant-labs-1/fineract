@@ -30,5 +30,15 @@ services:
       test: [ "CMD", "healthcheck.sh", "--su-mysql", "--connect", "--innodb_initialized" ]
       timeout: 10s
       retries: 10
+    # @rezliant RZ-6154E766 · 2026-10-06 — Prevents external network access to database
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
+
+# @rezliant-change-log:start
+# RZ-6154E766 · 2026-10-06 · MariaDB port exposed to all network interfaces
+# Change: Bound port 3306 to localhost interface only
+# Benefit: Prevents external network access to database
+# Scope: mariadb service ports configuration
+#
+# Rezliant remediation history: 1 total · 1 most recent shown
+# @rezliant-change-log:end
