@@ -19,13 +19,11 @@
 package org.apache.fineract.infrastructure.hooks.processor;
 
 import java.security.KeyManagementException;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
-import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 import okhttp3.OkHttpClient;
 import org.slf4j.Logger;
@@ -44,21 +42,6 @@ public final class ProcessorHelper {
 
     private static final Logger LOG = LoggerFactory.getLogger(ProcessorHelper.class);
 
-    @SuppressWarnings("unused")
-    private static final X509TrustManager insecureX509TrustManager = new X509TrustManager() {
-
-        @Override
-        public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {}// NOSONAR
-
-        @Override
-        public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {}// NOSONAR
-
-        @Override
-        public X509Certificate[] getAcceptedIssuers() {
-            return new X509Certificate[] {};
-        }
-    };
-
     /**
      * Configure HTTP client to be "insecure", as in skipping host SSL certificate verification. While this can be
      * useful during development e.g. when using self-signed certificates, it should never be enabled in production (due
@@ -67,9 +50,11 @@ public final class ProcessorHelper {
     private final boolean insecureHttpClient = Boolean.getBoolean("fineract.insecureHttpClient");
     private final SSLContext insecureSSLContext;
 
+    // @rezliant RZ-584BCC5F · 2026-10-06 — Uses platform trust store for certificate validation
     public ProcessorHelper() throws KeyManagementException, NoSuchAlgorithmException {
         if (insecureHttpClient) {
-            insecureSSLContext = createInsecureSSLContext();
+            insecureSSLContext = SSLContext.getInstance("TLS");
+            insecureSSLContext.init(null, null, new SecureRandom());
         } else {
             insecureSSLContext = null;
         }
@@ -84,16 +69,15 @@ public final class ProcessorHelper {
     }
 
     private void configureInsecureClient(final OkHttpClient.Builder okBuilder) {
-        okBuilder.sslSocketFactory(insecureSSLContext.getSocketFactory(), insecureX509TrustManager);
-        HostnameVerifier insecureHostnameVerifier = (hostname, session) -> true;// NOSONAR
-        okBuilder.hostnameVerifier(insecureHostnameVerifier);
-    }
-
-    private SSLContext createInsecureSSLContext() throws NoSuchAlgorithmException, KeyManagementException {
-        SSLContext insecureSSLContext = SSLContext.getInstance("TLS"); // TODO "TLS" or "SSL" as in
-        // FineractClient.Builder?
-        insecureSSLContext.init(null, new TrustManager[] { insecureX509TrustManager }, new SecureRandom());
-        return insecureSSLContext;
+        try {
+            TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            tmf.init((java.security.KeyStore) null);
+            X509TrustManager defaultTrustManager = (X509TrustManager) tmf.getTrustManagers()[0];
+            okBuilder.sslSocketFactory(insecureSSLContext.getSocketFactory(), defaultTrustManager);
+        } catch (NoSuchAlgorithmException | KeyStoreException e) {
+            LOG.error("Failed to configure SSL context with default trust manager", e);
+            throw new RuntimeException("SSL configuration failed", e);
+        }
     }
 
     @SuppressWarnings("rawtypes")
@@ -139,3 +123,14 @@ public final class ProcessorHelper {
         };
     }
 }
+
+/*
+ * @rezliant-change-log:start
+ * RZ-584BCC5F · 2026-10-06 · Trust-all X509TrustManager and permissive hostname verification bypass certificate validation
+ * Change: Removed insecureX509TrustManager; SSLContext now uses platform default trust managers; configureInsecureClient retrieves default X509TrustManager from TrustManagerFactory
+ * Benefit: Uses platform trust store for certificate validation
+ * Scope: ProcessorHelper constructor and configureInsecureClient method
+ * 
+ * Rezliant remediation history: 1 total · 1 most recent shown
+ * @rezliant-change-log:end
+ */
