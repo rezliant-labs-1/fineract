@@ -505,6 +505,19 @@ public final class FineractClient {
             return this;
         }
 
+        // @rezliant RZ-5011CE88 · 2026-10-06 — Enforces proper certificate validation
+        /**
+         * Skip Fineract API host SSL certificate verification. DO NOT USE THIS when invoking a production server's API!
+         * This is intended for https://localhost:8443/ testing of development servers with self-signed certificates,
+         * only. If you do not understand what this is, do not use it. You WILL cause a security issue in your
+         * application due to the possibility of a "man in the middle" attack when this is enabled.
+         */
+        @SuppressWarnings("unused")
+        public Builder insecure(boolean insecure) {
+            throw new UnsupportedOperationException(
+                "insecure() has been removed for security reasons. Use proper certificate configuration instead.");
+        }
+
         public FineractClient build() {
             // URL
             retrofitBuilder.baseUrl(has("baseURL", baseURL));
@@ -562,11 +575,13 @@ public final class FineractClient {
 
 /*
  * @rezliant-change-log:start
- * RZ-F00D4DA1 · 2026-10-06 · Trust-all TLS bypass in client builder
- * Change: Removed insecure() method that disabled certificate validation
- * Benefit: Eliminates man-in-the-middle attack vector from client library API
- * Scope: Builder class public API surface
- *
+ * 
+ * RZ-5011CE88 · 2026-10-06 · Trust-all TLS bypass enables man-in-the-middle attacks
+ * Change: Replaced insecure() implementation with UnsupportedOperationException
+ * Benefit: Enforces proper certificate validation
+ * Scope: Builder.insecure() method
+ * 
  * Rezliant remediation history: 1 total · 1 most recent shown
+ * 
  * @rezliant-change-log:end
  */
