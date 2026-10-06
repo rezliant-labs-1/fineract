@@ -21,6 +21,16 @@ version: "3.8"
 services:
   activemq:
     image: symptoma/activemq:5.18.3
+    # @rezliant RZ-B216792D · 2026-10-06 — Restricts ActiveMQ ports to localhost only
     ports:
-      - "6161:6161"
-      - "61616:61616"
+      - "127.0.0.1:6161:6161"
+      - "127.0.0.1:61616:61616"
+
+# @rezliant-change-log:start
+# RZ-B216792D · 2026-10-06 · Unintended network exposure of ActiveMQ admin and transport ports
+# Change: Bound ports 6161 and 61616 to 127.0.0.1 instead of all interfaces
+# Benefit: Restricts ActiveMQ ports to localhost only
+# Scope: activemq service ports configuration
+#
+# Rezliant remediation history: 1 total · 1 most recent shown
+# @rezliant-change-log:end
