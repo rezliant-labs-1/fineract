@@ -63,14 +63,24 @@ services:
     image: grafana/tempo:2.2.4
     # command: [ "--target=all", "--storage.trace.backend=local", "--storage.trace.local.path=/tmp/tempo", "--auth.enabled=false" ]
     command: [ "-config.file=/etc/tempo.yml" ]
+    # @rezliant RZ-80473ED2 · 2026-10-06 — Prevents external network exposure of observability endpoints
     ports:
-      - "14268:14268" # jaeger ingest
-      - "3200:3200"   # tempo
-      - "9095:9095"   # tempo grpc
-      - "4317:4317"   # otlp grpc
-      - "4318:4318"   # otlp http
-      - "9411:9411"   # zipkin
+      - "127.0.0.1:14268:14268" # jaeger ingest
+      - "127.0.0.1:3200:3200"   # tempo
+      - "127.0.0.1:9095:9095"   # tempo grpc
+      - "127.0.0.1:4317:4317"   # otlp grpc
+      - "127.0.0.1:4318:4318"   # otlp http
+      - "127.0.0.1:9411:9411"   # zipkin
     volumes:
       - ${PWD}/config/docker/tempo/etc/tempo.yml:/etc/tempo.yml
       - /tmp/tempo:/tmp/tempo
     logging: *default-logging
+
+# @rezliant-change-log:start
+# RZ-80473ED2 · 2026-10-06 · Tempo service exposes OTLP gRPC port 4317 on all network interfaces
+# Change: Prefixed all six Tempo port mappings with 127.0.0.1: to bind to localhost only
+# Benefit: Prevents external network exposure of observability endpoints
+# Scope: tempo service ports block
+#
+# Rezliant remediation history: 1 total · 1 most recent shown
+# @rezliant-change-log:end
