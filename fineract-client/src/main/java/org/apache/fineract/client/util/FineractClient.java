@@ -505,48 +505,6 @@ public final class FineractClient {
             return this;
         }
 
-        /**
-         * Skip Fineract API host SSL certificate verification. DO NOT USE THIS when invoking a production server's API!
-         * This is intended for https://localhost:8443/ testing of development servers with self-signed certificates,
-         * only. If you do not understand what this is, do not use it. You WILL cause a security issue in your
-         * application due to the possibility of a "man in the middle" attack when this is enabled.
-         */
-        @SuppressWarnings("unused")
-        public Builder insecure(boolean insecure) {
-            // Nota bene: Similar code to this is also in Fineract Provider's
-            // org.apache.fineract.infrastructure.hooks.processor.ProcessorHelper
-            if (insecure) {
-                HostnameVerifier insecureHostnameVerifier = (hostname, session) -> true;// NOSONAR
-                okBuilder.hostnameVerifier(insecureHostnameVerifier);
-
-                try {
-                    X509TrustManager insecureX509TrustManager = new X509TrustManager() {
-
-                        @Override
-                        public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {}// NOSONAR
-
-                        @Override
-                        public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {}// NOSONAR
-
-                        @Override
-                        public X509Certificate[] getAcceptedIssuers() {
-                            return new X509Certificate[] {};
-                        }
-                    };
-
-                    // TODO "SSL" or "TLS" as in hooks.processor.ProcessorHelper?
-                    SSLContext sslContext = SSLContext.getInstance("SSL");// NOSONAR
-                    sslContext.init(null, new TrustManager[] { insecureX509TrustManager }, new SecureRandom());
-                    SSLSocketFactory insecureSslSocketFactory = sslContext.getSocketFactory();
-
-                    okBuilder.sslSocketFactory(insecureSslSocketFactory, insecureX509TrustManager);
-                } catch (NoSuchAlgorithmException | KeyManagementException e) {
-                    throw new IllegalStateException("insecure() SSL configuration failed", e);
-                }
-            }
-            return this;
-        }
-
         public FineractClient build() {
             // URL
             retrofitBuilder.baseUrl(has("baseURL", baseURL));
@@ -601,3 +559,14 @@ public final class FineractClient {
         }
     }
 }
+
+/*
+ * @rezliant-change-log:start
+ * RZ-F00D4DA1 · 2026-10-06 · Trust-all TLS bypass in client builder
+ * Change: Removed insecure() method that disabled certificate validation
+ * Benefit: Eliminates man-in-the-middle attack vector from client library API
+ * Scope: Builder class public API surface
+ *
+ * Rezliant remediation history: 1 total · 1 most recent shown
+ * @rezliant-change-log:end
+ */
