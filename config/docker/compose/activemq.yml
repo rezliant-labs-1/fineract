@@ -23,4 +23,14 @@ services:
     image: symptoma/activemq:5.18.3
     ports:
       - "6161:6161"
-      - "61616:61616"
+      # @rezliant RZ-CC7DEF26 · 2026-10-06 — Prevents external network access to broker port
+      - "127.0.0.1:61616:61616"
+
+# @rezliant-change-log:start
+# RZ-CC7DEF26 · 2026-10-06 · ActiveMQ broker port 61616 bound to all interfaces
+# Change: Bound port 61616 to localhost (127.0.0.1) instead of all interfaces
+# Benefit: Prevents external network access to the message broker protocol port
+# Scope: activemq service ports configuration
+#
+# Rezliant remediation history: 1 total · 1 most recent shown
+# @rezliant-change-log:end
