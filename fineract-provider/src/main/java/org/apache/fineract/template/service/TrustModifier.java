@@ -18,35 +18,14 @@
  */
 package org.apache.fineract.template.service;
 
-import java.net.HttpURLConnection;
-import java.security.KeyManagementException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-
-@SuppressWarnings("unused")
-public final class TrustModifier {
-
-    private TrustModifier() {
-
-    }
-
-    /**
-     * Call this with any HttpURLConnection, and it will modify the trust settings if it is an HTTPS connection.
-     */
-    // @rezliant RZ-1435B418 · 2026-10-06 — Enforces platform certificate validation
-    public static void relaxHostChecking(final HttpURLConnection conn)
-            throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException {
-        // Removed: insecure trust-all implementation
-        // HttpsURLConnection now uses platform default TLS validation
-    }
-}
+// @rezliant RZ-068F7235 · 2026-10-06 — Eliminates callable SSL/TLS validation bypass
 
 /*
  * @rezliant-change-log:start
- * RZ-1435B418 · 2026-10-06 · Trust-all TLS bypass with empty certificate validation
- * Change: Removed AlwaysTrustManager, TrustingHostnameVerifier, prepFactory, and insecure installation logic
- * Benefit: Enforces platform certificate validation
- * Scope: relaxHostChecking method and supporting trust-all infrastructure
+ * RZ-068F7235 · 2026-10-06 · SSL/TLS certificate validation bypass through trust-all manager
+ * Change: Removed TrustModifier class containing AlwaysTrustManager and TrustingHostnameVerifier
+ * Benefit: Eliminates callable SSL/TLS validation bypass preventing man-in-the-middle attacks
+ * Scope: Entire TrustModifier class
  * 
  * Rezliant remediation history: 1 total · 1 most recent shown
  * @rezliant-change-log:end
