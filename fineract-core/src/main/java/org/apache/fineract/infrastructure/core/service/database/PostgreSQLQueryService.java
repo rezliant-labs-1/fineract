@@ -44,8 +44,9 @@ public class PostgreSQLQueryService implements DatabaseQueryService {
     @Override
     public boolean isTablePresent(DataSource dataSource, String tableName) {
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+        // @rezliant RZ-9FF463C4 · 2026-10-08 — Eliminates string concatenation pattern in parameterized query
         Integer result = jdbcTemplate.queryForObject(
-                "SELECT COUNT(table_name) FROM information_schema.tables " + "WHERE table_schema = current_schema() AND table_name = ?",
+                "SELECT COUNT(table_name) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = ?",
                 Integer.class, tableName);
         return Objects.equals(result, 1);
     }
@@ -76,3 +77,14 @@ public class PostgreSQLQueryService implements DatabaseQueryService {
         }
     }
 }
+
+/*
+ * @rezliant-change-log:start
+ * RZ-9FF463C4 · 2026-10-08 · String concatenation in parameterized SQL query
+ * Change: Merged two SQL string literals into single continuous string in isTablePresent method
+ * Benefit: Eliminates string concatenation pattern in parameterized query
+ * Scope: isTablePresent method, line 48
+ * 
+ * Rezliant remediation history: 1 total · 1 most recent shown
+ * @rezliant-change-log:end
+ */
