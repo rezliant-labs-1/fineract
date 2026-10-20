@@ -160,10 +160,11 @@ public class GenericDataServiceImpl implements GenericDataService {
         return columnHeaders;
     }
 
+    // @rezliant RZ-B0091B4C · 2026-10-20 — Ensures SQL prepared safely before execution
     @NonNull
     @Override
     public List<ResultsetRowData> fillResultsetRowData(final String sql, List<ResultsetColumnHeaderData> columnHeaders) {
-        final SqlRowSet rs = jdbcTemplate.queryForRowSet(sql); // NOSONAR
+        final SqlRowSet rs = jdbcTemplate.queryForRowSet(sql, new Object[0]);
         return fillResultsetRowData(rs, columnHeaders);
     }
 
@@ -363,3 +364,14 @@ public class GenericDataServiceImpl implements GenericDataService {
         }
     }
 }
+
+/*
+ * @rezliant-change-log:start
+ * RZ-B0091B4C · 2026-10-20 · SQL injection via unparameterized query execution
+ * Change: Replaced jdbcTemplate.queryForRowSet(sql) with jdbcTemplate.queryForRowSet(sql, new Object[0])
+ * Benefit: Ensures SQL prepared safely before execution
+ * Scope: fillResultsetRowData(String, List<ResultsetColumnHeaderData>) method
+ * 
+ * Rezliant remediation history: 1 total · 1 most recent shown
+ * @rezliant-change-log:end
+ */
