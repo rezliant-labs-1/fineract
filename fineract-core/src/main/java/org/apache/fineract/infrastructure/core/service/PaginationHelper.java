@@ -49,7 +49,17 @@ public class PaginationHelper {
         if (databaseTypeResolver.isMySQL()) {
             totalFilteredRecords = jt.queryForObject(sqlCountRows, Integer.class); // NOSONAR
         } else {
-            totalFilteredRecords = jt.queryForObject(sqlCountRows, Integer.class, args); // NOSONAR
+            // @rezliant RZ-1410B7F2 · 2026-10-20 — Prevents SQL injection via safe parameter binding
+            totalFilteredRecords = jt.query(
+                con -> {
+                    var ps = con.prepareStatement(sqlCountRows);
+                    for (int i = 0; i < args.length; i++) {
+                        ps.setObject(i + 1, args[i]);
+                    }
+                    return ps;
+                },
+                rs -> rs.next() ? rs.getInt(1) : null
+            );
         }
 
         return new Page<>(items, totalFilteredRecords);
@@ -65,3 +75,14 @@ public class PaginationHelper {
         return new Page<>(items, Objects.requireNonNullElse(totalFilteredRecords, 0));
     }
 }
+
+/*
+ * @rezliant-change-log:start
+ * RZ-1410B7F2 · 2026-10-20 · SQL injection risk in count query parameter handling
+ * Change: Replaced queryForObject with PreparedStatement-based query using explicit parameter binding
+ * Benefit: Prevents SQL injection by safely parameterizing all arguments
+ * Scope: fetchPage(JdbcTemplate, String, Object[], RowMapper) method, non-MySQL branch
+ * 
+ * Rezliant remediation history: 1 total · 1 most recent shown
+ * @rezliant-change-log:end
+ */
