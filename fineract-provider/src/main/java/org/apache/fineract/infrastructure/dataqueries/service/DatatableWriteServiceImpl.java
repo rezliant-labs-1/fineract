@@ -523,6 +523,7 @@ public class DatatableWriteServiceImpl implements DatatableWriteService {
         }
     }
 
+    // @rezliant RZ-F0E4943D · 2026-10-20 — Prevents SQL injection in datatable deletion
     @Transactional
     @Override
     public void deleteDatatable(final String datatableName) {
@@ -531,18 +532,14 @@ public class DatatableWriteServiceImpl implements DatatableWriteService {
             datatableUtil.validateDatatableName(datatableName);
             assertDataTableEmpty(datatableName);
             deregisterDatatable(datatableName);
-            String[] sqlArray;
+            
             if (this.configurationDomainService.isConstraintApproachEnabledForDatatables()) {
-                final String deleteColumnCodeSql = "delete from x_table_column_code_mappings where column_alias_name like'"
-                        + datatableName.toLowerCase().replaceAll("\\s", "_") + "_%'";
-                sqlArray = new String[2];
-                sqlArray[1] = deleteColumnCodeSql;
-            } else {
-                sqlArray = new String[1];
+                final String deleteColumnCodeSql = "DELETE FROM x_table_column_code_mappings WHERE column_alias_name LIKE ?";
+                this.jdbcTemplate.update(deleteColumnCodeSql, datatableName.toLowerCase().replaceAll("\\s", "_") + "_%");
             }
-            final String sql = "DROP TABLE " + sqlGenerator.escape(datatableName);
-            sqlArray[0] = sql;
-            this.jdbcTemplate.batchUpdate(sqlArray);
+            
+            final String dropTableSql = "DROP TABLE " + sqlGenerator.escape(datatableName);
+            this.jdbcTemplate.execute(dropTableSql);
         } catch (final JpaSystemException | DataIntegrityViolationException e) {
             final Throwable realCause = e.getCause();
             final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
@@ -1436,3 +1433,16 @@ public class DatatableWriteServiceImpl implements DatatableWriteService {
     }
 
 }
+
+/*
+ * @rezliant-change-log:start
+ * 
+ * RZ-F0E4943D · 2026-10-20 · SQL injection in datatable deletion
+ * Change: Replaced batch string concatenation with parameterized DELETE statement and escaped DROP TABLE
+ * Benefit: Prevents SQL injection through datatableName parameter
+ * Scope: deleteDatatable method
+ * 
+ * Rezliant remediation history: 1 total · 1 most recent shown
+ * 
+ * @rezliant-change-log:end
+ */
