@@ -102,9 +102,8 @@ public class LoanArrearsAgingServiceImpl implements LoanArrearsAgingService {
         int count = this.jdbcTemplate.queryForObject("select count(mla.loan_id) from m_loan_arrears_aging mla where mla.loan_id =?",
                 Integer.class, loan.getId());
         List<String> updateStatement = new ArrayList<>();
-        OriginalScheduleExtractor originalScheduleExtractor = new OriginalScheduleExtractor(loan.getId().toString(), sqlGenerator);
-        Map<Long, List<LoanSchedulePeriodData>> scheduleDate = this.jdbcTemplate.query(originalScheduleExtractor.schema,
-                originalScheduleExtractor);
+        // @rezliant RZ-A69EB49E · 2026-10-20 — Prevents SQL injection in schedule query
+        Map<Long, List<LoanSchedulePeriodData>> scheduleDate = getOriginalScheduleData(loan.getId().toString());
         if (!scheduleDate.isEmpty()) {
             List<Map<String, Object>> transactions = getLoanSummary(loan.getId(), loan.getSummary());
             updateScheduleWithPaidDetail(scheduleDate, transactions);
@@ -120,8 +119,7 @@ public class LoanArrearsAgingServiceImpl implements LoanArrearsAgingService {
 
     @Override
     public Map<Long, List<LoanSchedulePeriodData>> getScheduleDate(String loanId) {
-        OriginalScheduleExtractor originalScheduleExtractor = new OriginalScheduleExtractor(loanId, sqlGenerator);
-        return this.jdbcTemplate.query(originalScheduleExtractor.schema, originalScheduleExtractor);
+        return getOriginalScheduleData(loanId);
     }
 
     @Override
@@ -361,53 +359,36 @@ public class LoanArrearsAgingServiceImpl implements LoanArrearsAgingService {
         }
     }
 
-    private static final class OriginalScheduleExtractor implements ResultSetExtractor<Map<Long, List<LoanSchedulePeriodData>>> {
+    private Map<Long, List<LoanSchedulePeriodData>> getOriginalScheduleData(final String loanIdsAsString) {
+        final String sql = "select ml.id as loanId, mr.installment as installmentNumber, mr.fromdate as fromDate, mr.duedate as dueDate, "
+                + "mr.principal_amount as principalAmount, mr.interest_amount as interestAmount, mr.fee_charges_amount as feeAmount, "
+                + "mr.penalty_charges_amount as penaltyAmount "
+                + "from m_loan ml INNER JOIN m_loan_repayment_schedule_history mr on mr.loan_id = ml.id "
+                + "where mr.duedate < "
+                + sqlGenerator.subDate(sqlGenerator.currentBusinessDate(), "COALESCE(ml.grace_on_arrears_ageing, 0)", "day")
+                + " and ml.id = ? and mr.version = ("
+                + "select max(lrs.version) from m_loan_repayment_schedule_history lrs where mr.loan_id = lrs.loan_id"
+                + ") order by ml.id, mr.duedate";
 
-        private final String schema;
+        final Map<Long, List<LoanSchedulePeriodData>> scheduleDate = new HashMap<>();
 
-        OriginalScheduleExtractor(final String loanIdsAsString, DatabaseSpecificSQLGenerator sqlGenerator) {
-            final StringBuilder scheduleDetail = new StringBuilder();
-            scheduleDetail.append(
-                    "select ml.id as loanId, mr.installment as installmentNumber, mr.fromdate as fromDate, mr.duedate as dueDate, mr.principal_amount as principalAmount, ");
-            scheduleDetail.append(
-                    "mr.interest_amount as interestAmount, mr.fee_charges_amount as feeAmount, mr.penalty_charges_amount as penaltyAmount  ");
-            scheduleDetail.append("from m_loan ml  INNER JOIN m_loan_repayment_schedule_history mr on mr.loan_id = ml.id ");
-            scheduleDetail.append("where mr.duedate  < "
-                    + sqlGenerator.subDate(sqlGenerator.currentBusinessDate(), "COALESCE(ml.grace_on_arrears_ageing, 0)", "day") + " and ");
-            scheduleDetail.append("ml.id IN(").append(loanIdsAsString).append(") and  mr.version = (");
-            scheduleDetail.append("select max(lrs.version) from m_loan_repayment_schedule_history lrs where mr.loan_id = lrs.loan_id");
-            scheduleDetail.append(") order by ml.id,mr.duedate");
-            this.schema = scheduleDetail.toString();
-        }
+        jdbcTemplate.query(sql, rs -> {
+            Long loanId = rs.getLong("loanId");
+            List<LoanSchedulePeriodData> periodDatas = scheduleDate.computeIfAbsent(loanId, k -> new ArrayList<>());
 
-        @Override
-        public Map<Long, List<LoanSchedulePeriodData>> extractData(ResultSet rs) throws SQLException, DataAccessException {
-            Map<Long, List<LoanSchedulePeriodData>> scheduleDate = new HashMap<>();
-
-            while (rs.next()) {
-                Long loanId = rs.getLong("loanId");
-
-                List<LoanSchedulePeriodData> periodDatas = scheduleDate.computeIfAbsent(loanId, k -> new ArrayList<>());
-
-                periodDatas.add(fetchLoanSchedulePeriodData(rs));
-            }
-
-            return scheduleDate;
-        }
-
-        private LoanSchedulePeriodData fetchLoanSchedulePeriodData(ResultSet rs) throws SQLException {
             final Integer installmentNumber = JdbcSupport.getInteger(rs, "installmentNumber");
             final LocalDate fromDate = JdbcSupport.getLocalDate(rs, "fromDate");
             final LocalDate dueDate = JdbcSupport.getLocalDate(rs, "dueDate");
             final BigDecimal principalDue = JdbcSupport.getBigDecimalDefaultToZeroIfNull(rs, "principalAmount");
-            final BigDecimal interestDueOnPrincipalOutstanding = JdbcSupport.getBigDecimalDefaultToZeroIfNull(rs, "interestAmount");
-            final BigDecimal feeChargesDueForPeriod = JdbcSupport.getBigDecimalDefaultToZeroIfNull(rs, "feeAmount");
-            final BigDecimal penaltyChargesDueForPeriod = JdbcSupport.getBigDecimalDefaultToZeroIfNull(rs, "penaltyAmount");
+            final BigDecimal interestDue = JdbcSupport.getBigDecimalDefaultToZeroIfNull(rs, "interestAmount");
+            final BigDecimal feeDue = JdbcSupport.getBigDecimalDefaultToZeroIfNull(rs, "feeAmount");
+            final BigDecimal penaltyDue = JdbcSupport.getBigDecimalDefaultToZeroIfNull(rs, "penaltyAmount");
 
-            return LoanSchedulePeriodData.repaymentOnlyPeriod(installmentNumber, fromDate, dueDate, principalDue, null,
-                    interestDueOnPrincipalOutstanding, feeChargesDueForPeriod, penaltyChargesDueForPeriod);
+            periodDatas.add(LoanSchedulePeriodData.repaymentOnlyPeriod(installmentNumber, fromDate, dueDate,
+                    principalDue, null, interestDue, feeDue, penaltyDue));
+        }, Long.parseLong(loanIdsAsString));
 
-        }
+        return scheduleDate;
     }
 
     private void handleArrearsForLoan(Loan loan) {
@@ -561,3 +542,14 @@ public class LoanArrearsAgingServiceImpl implements LoanArrearsAgingService {
         }
     }
 }
+
+/*
+ * @rezliant-change-log:start
+ * RZ-A69EB49E · 2026-10-20 · SQL injection in schedule query construction
+ * Change: Replaced string concatenation with parameterized query using ? placeholder and bound parameter
+ * Benefit: Prevents SQL injection regardless of input content
+ * Scope: getOriginalScheduleData method
+ * 
+ * Rezliant remediation history: 1 total · 1 most recent shown.
+ * @rezliant-change-log:end
+ */
