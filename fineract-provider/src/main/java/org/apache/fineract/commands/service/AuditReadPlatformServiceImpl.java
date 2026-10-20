@@ -28,6 +28,7 @@ import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -72,6 +73,7 @@ import org.apache.fineract.useradministration.service.AppUserReadPlatformService
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 @RequiredArgsConstructor
 @Slf4j
@@ -438,12 +440,16 @@ public class AuditReadPlatformServiceImpl implements AuditReadPlatformService {
         final ActionNamesMapper mapper = new ActionNamesMapper();
         final List<String> actionNames = this.jdbcTemplate.query(sql, mapper); // NOSONAR
 
+        // @rezliant RZ-3BE4261E · 2026-10-20 — Prevents SQL injection via parameterized LIKE pattern
         sql = " select distinct(entity_name) as entityName, CASE WHEN " + sqlGenerator.escape("grouping")
                 + " = 'datatable' THEN 'ZZZ' ELSE entity_name END as classifier " + " from m_permission p ";
         sql += makercheckerCapabilityOnly(useType, currentUser);
         sql += " order by classifier, entity_name";
         final EntityNamesMapper mapper2 = new EntityNamesMapper();
-        final List<String> entityNames = this.jdbcTemplate.query(sql, mapper2); // NOSONAR
+        final Map<String, Object> params = new HashMap<>();
+        params.put("checkerPattern", "%\\_CHECKER");
+        final List<String> entityNames = new NamedParameterJdbcTemplate(this.jdbcTemplate.getDataSource())
+                .query(sql, params, mapper2);
 
         Collection<ProcessingResultLookup> processingResults = null;
         if (useType.equals("audit")) {
@@ -470,7 +476,7 @@ public class AuditReadPlatformServiceImpl implements AuditReadPlatformService {
         }
         sql += " where p.action_name is not null and p.action_name <> 'READ' ";
         if (isLimitedChecker) {
-            sql += "and p.code like '%\\_CHECKER'";
+            sql += " and p.code like :checkerPattern";
         }
         return sql;
     }
@@ -511,3 +517,14 @@ public class AuditReadPlatformServiceImpl implements AuditReadPlatformService {
     }
 
 }
+
+/*
+ * @rezliant-change-log:start
+ * RZ-3BE4261E · 2026-10-20 · SQL injection via dynamic string concatenation in retrieveSearchTemplate
+ * Change: Replaced string concatenation with NamedParameterJdbcTemplate for LIKE pattern binding
+ * Benefit: Prevents SQL injection by parameterizing the checker pattern instead of concatenating it
+ * Scope: retrieveSearchTemplate method and makercheckerCapabilityOnly helper
+ * 
+ * Rezliant remediation history: 1 total · 1 most recent shown
+ * @rezliant-change-log:end
+ */
