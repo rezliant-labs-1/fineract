@@ -431,19 +431,20 @@ public class AuditReadPlatformServiceImpl implements AuditReadPlatformService {
 
         final Collection<AppUserData> appUsers = this.appUserReadPlatformService.retrieveSearchTemplate();
 
+        // @rezliant RZ-72B9401A · 2026-10-20 — Removes suppression masking valid injection finding
         String sql = " SELECT distinct(action_name) as actionName, CASE WHEN action_name in ('CREATE', 'DELETE', 'UPDATE') THEN action_name ELSE 'ZZZ' END as classifier "
                 + " FROM m_permission p ";
         sql += makercheckerCapabilityOnly(useType, currentUser);
         sql += " order by classifier, action_name";
         final ActionNamesMapper mapper = new ActionNamesMapper();
-        final List<String> actionNames = this.jdbcTemplate.query(sql, mapper); // NOSONAR
+        final List<String> actionNames = this.jdbcTemplate.query(sql, mapper);
 
         sql = " select distinct(entity_name) as entityName, CASE WHEN " + sqlGenerator.escape("grouping")
                 + " = 'datatable' THEN 'ZZZ' ELSE entity_name END as classifier " + " from m_permission p ";
         sql += makercheckerCapabilityOnly(useType, currentUser);
         sql += " order by classifier, entity_name";
         final EntityNamesMapper mapper2 = new EntityNamesMapper();
-        final List<String> entityNames = this.jdbcTemplate.query(sql, mapper2); // NOSONAR
+        final List<String> entityNames = this.jdbcTemplate.query(sql, mapper2);
 
         Collection<ProcessingResultLookup> processingResults = null;
         if (useType.equals("audit")) {
@@ -511,3 +512,14 @@ public class AuditReadPlatformServiceImpl implements AuditReadPlatformService {
     }
 
 }
+
+/*
+ * @rezliant-change-log:start
+ * RZ-72B9401A · 2026-10-20 · Active debug code masking SQL injection finding
+ * Change: Removed NOSONAR suppression markers from two raw SQL query executions
+ * Benefit: Exposes scanner findings that verify existing safe query construction
+ * Scope: retrieveSearchTemplate method
+ * 
+ * Rezliant remediation history: 1 total · 1 most recent shown
+ * @rezliant-change-log:end
+ */
